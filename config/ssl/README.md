@@ -70,3 +70,5 @@ kafka-topics.sh --zookeeper localhost:2181 --describe --topic my-topic
 `
 kafka-topics.sh --bootstrap-server localhost:9092,localhost:9093,localhost:9094 --describe --topic my-topic
 `
+### from comments on Youtube videos
+Bootstrap.servers for producers/consumers= specifying one node is always fine and it will find the other 2 nodes part of the cluster. But, i would always recommend to include more than 1 because if the first node is down, second node helps to discover the cluster........ TS and KS for Producers/consumers => Keystore depends highly depends on the machine where u execute ur app... so, u can of course use same KS if they are on the same machine... For TS, u can have one common CA imported into this TS and use the same across everywhere!!
