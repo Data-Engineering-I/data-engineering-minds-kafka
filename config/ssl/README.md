@@ -116,3 +116,146 @@ keytool -keystore kafka.broker0.keystore.jks -alias broker0 -import -file ca-sig
 
 keytool -keystore kafka.broker2.keystore.jks -alias CARoot -import -file cacert.pem
 keytool -keystore kafka.broker2.keystore.jks -alias broker2 -import -file ca-signed-broker2
+
+
+===================
+This is how my openssl-ca.cnf looks like:
+HOME            = .
+RANDFILE        = .rnd
+
+####################################################################
+[ ca ]
+default_ca    = CA_default      # The default ca section
+
+[ CA_default ]
+
+base_dir      = /Users/vinod/mymac/kafka1/ssl
+certificate   = $base_dir/cacert.pem   # The CA certifcate
+private_key   = $base_dir/cakey.pem    # The CA private key
+new_certs_dir = $base_dir              # Location for new certs after signing
+database      = $base_dir/index.txt    # Database index file
+serial        = $base_dir/serial.txt   # The current serial number
+
+default_days     = 1000         # How long to certify for
+default_crl_days = 30           # How long before next CRL
+default_md       = sha256       # Use public key default MD
+preserve         = no           # Keep passed DN ordering
+
+x509_extensions = ca_extensions # The extensions to add to the cert
+
+email_in_dn     = no            # Don't concat the email in the DN
+copy_extensions = copy          # Required to copy SANs from CSR to cert
+
+####################################################################
+[ req ]
+default_bits       = 4096
+default_keyfile    = cakey.pem
+distinguished_name = ca_distinguished_name
+x509_extensions    = ca_extensions
+string_mask        = utf8only
+
+####################################################################
+[ ca_distinguished_name ]
+countryName         = Country Name (2 letter code)
+countryName_default = DE
+
+stateOrProvinceName         = State or Province Name (full name)
+stateOrProvinceName_default = Berlin
+
+localityName                = Locality Name (eg, city)
+localityName_default        = Berlin
+
+organizationName            = Organization Name (eg, company)
+organizationName_default    = DEM
+
+organizationalUnitName         = Organizational Unit (eg, division)
+organizationalUnitName_default = DE
+
+commonName         = Common Name (e.g. server FQDN or YOUR name)
+commonName_default = ca-cert
+
+emailAddress         = Email Address
+emailAddress_default = test@test.com
+
+####################################################################
+[ ca_extensions ]
+
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always, issuer
+basicConstraints       = critical, CA:true
+keyUsage               = keyCertSign, cRLSign
+
+####################################################################
+[ signing_req ]
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+basicConstraints       = CA:FALSE
+keyUsage               = digitalSignature, keyEncipherment
+
+####################################################################
+[ signing_policy ]
+countryName            = optional
+stateOrProvinceName    = optional
+localityName           = optional
+organizationName       = optional
+organizationalUnitName = optional
+commonName             = supplied
+emailAddress           = optional
+
+
+==================================================
+==================================================
+
+And, when I executed openssl s_client -debug -connect localhost:9097 -tls1, I got below output as u which is fine as these are related to client (producer/consumer) connections. I was able to create topics as well and all the three brokers are able to connect without issue.
+CONNECTED(00000003)
+write to 0x7fdc20c25aa0 [0x7fdc21022e03] (200 bytes => 200 (0xC8))
+0000 - 16 03 01 00 c3 01 00 00-bf 03 01 40 38 24 3f 3a   ...........@8$?:
+0010 - 16 f5 f3 5e e9 5e c0 ca-87 1f ec a9 ae a5 c6 ff   ...^.^..........
+
+---
+no peer certificate available
+---
+No client certificate CA names sent
+---
+SSL handshake has read 5 bytes and written 7 bytes
+---
+New, (NONE), Cipher is (NONE)
+Secure Renegotiation IS NOT supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1
+    Cipher    : 0000
+    Session-ID: 
+    Session-ID-ctx: 
+    Master-Key: 
+    Key-Arg   : None
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    Start Time: 1609362469
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
