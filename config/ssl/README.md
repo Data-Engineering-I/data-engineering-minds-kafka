@@ -72,3 +72,47 @@ kafka-topics.sh --bootstrap-server localhost:9092,localhost:9093,localhost:9094 
 `
 ### from comments on Youtube videos
 Bootstrap.servers for producers/consumers= specifying one node is always fine and it will find the other 2 nodes part of the cluster. But, i would always recommend to include more than 1 because if the first node is down, second node helps to discover the cluster........ TS and KS for Producers/consumers => Keystore depends highly depends on the machine where u execute ur app... so, u can of course use same KS if they are on the same machine... For TS, u can have one common CA imported into this TS and use the same across everywhere!!
+
+=========================================
+
+https://www.youtube.com/watch?v=hR_OuiqLgOo&list=PLlBQ_B5-H_xhEHUC6OWI0eide_4wbt8Eo&index=4
+----------------------------------------------------------------------------------------------
+ Hichem Belhocine  I tested with Kafka2.7 and PEM and it works fine for me. Here is the steps (for all 3 brokers): 
+1. 𝐆𝐞𝐧𝐞𝐫𝐚𝐭𝐞 𝐂𝐀 
+echo 01 > serial.txt
+touch index.txt
+openssl req -x509 -config openssl-ca.cnf -newkey rsa:4096 -sha256 -nodes -out cacert.pem -outform PEM
+
+
+2. 𝐂𝐫𝐞𝐚𝐭𝐞 𝐓𝐫𝐮𝐬𝐭𝐬𝐭𝐨𝐫𝐞
+keytool -keystore kafka.broker1.truststore.jks -alias CARoot -import -file cacert.pem
+keytool -keystore kafka.broker0.truststore.jks -alias CARoot -import -file cacert.pem
+keytool -keystore kafka.broker2.truststore.jks -alias CARoot -import -file cacert.pem
+
+
+𝟑. 𝐂𝐫𝐞𝐚𝐭𝐞 𝐊𝐞𝐲𝐬𝐭𝐨𝐫𝐞 ==  (whiile creating keystore it did not ask for keypassword. I think it is because of pkcs12 format. So, inside server.properties, give ssl.keystore.password and ssl.key.passoword the same value. else it will fail with SSL handshake)
+keytool -keystore kafka.broker1.keystore.jks -alias broker1 -validity 3650 -genkey -keyalg RSA -storetype pkcs12 -ext SAN=dns:localhost
+keytool -keystore kafka.broker0.keystore.jks -alias broker0 -validity 3650 -genkey -keyalg RSA -storetype pkcs12 -ext SAN=dns:localhost
+keytool -keystore kafka.broker2.keystore.jks -alias broker2 -validity 3650 -genkey -keyalg RSA -storetype pkcs12 -ext SAN=dns:localhost
+
+
+𝟒. 𝐂𝐫𝐞𝐚𝐭𝐞 𝐜𝐞𝐫𝐭𝐢𝐟𝐢𝐜𝐚𝐭𝐞 𝐬𝐢𝐠𝐧𝐢𝐧𝐠 𝐫𝐞𝐪𝐮𝐞𝐬𝐭 (𝐂𝐒𝐑) == 
+keytool -keystore kafka.broker1.keystore.jks -alias broker1 -certreq -file ca-request-broker1 -ext SAN=DNS:localhost
+keytool -keystore kafka.broker0.keystore.jks -alias broker0 -certreq -file ca-request-broker0 -ext SAN=DNS:localhost
+keytool -keystore kafka.broker2.keystore.jks -alias broker2 -certreq -file ca-request-broker2 -ext SAN=DNS:localhost
+
+𝟓. 𝐒𝐢𝐠𝐧 𝐭𝐡𝐞 𝐂𝐒𝐑 == 
+openssl ca -config openssl-ca.cnf -policy signing_policy -extensions signing_req -out ca-signed-broker1 -infiles ca-request-broker1
+openssl ca -config openssl-ca.cnf -policy signing_policy -extensions signing_req -out ca-signed-broker0 -infiles ca-request-broker0
+openssl ca -config openssl-ca.cnf -policy signing_policy -extensions signing_req -out ca-signed-broker2 -infiles ca-request-broker2
+
+
+𝟔. 𝐈𝐦𝐩𝐨𝐫𝐭 𝐭𝐡𝐞 𝐂𝐀 𝐢𝐧𝐭𝐨 𝐊𝐞𝐲𝐬𝐭𝐨𝐫𝐞 == 
+keytool -keystore kafka.broker1.keystore.jks -alias CARoot -import -file cacert.pem
+keytool -keystore kafka.broker1.keystore.jks -alias broker1 -import -file ca-signed-broker1
+
+keytool -keystore kafka.broker0.keystore.jks -alias CARoot -import -file cacert.pem
+keytool -keystore kafka.broker0.keystore.jks -alias broker0 -import -file ca-signed-broker0
+
+keytool -keystore kafka.broker2.keystore.jks -alias CARoot -import -file cacert.pem
+keytool -keystore kafka.broker2.keystore.jks -alias broker2 -import -file ca-signed-broker2
